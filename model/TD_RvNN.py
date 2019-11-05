@@ -1,5 +1,3 @@
-__doc__ = """Tree GRU aka Recursive Neural Networks."""
-
 import numpy as np
 from collections import OrderedDict
 import torch
@@ -7,66 +5,6 @@ import torch.nn as nn
 import torch.autograd
 import torch.nn.functional as F
 from torch.nn.utils import clip_grad_norm
-
-
-class Node_tweet(object):
-    def __init__(self, idx=None):
-        self.children = [] #children of current node
-        self.idx = idx #eid
-        self.word = [] #wordFrequent
-        self.index = [] #wordIndex
-        self.parent = None #parent of current node
-        
-# generate tree structure
-def gen_nn_inputs(root_node, ini_word):
-    """Given a root node, returns the appropriate inputs to NN.
-    The NN takes in
-        x: the values at the leaves (e.g. word indices)
-        tree: a (n x degree) matrix that provides the computation order.
-            Namely, a row tree[i] = [a, b, c] in tree signifies that a
-            and b are children of c, and that the computation
-            f(a, b) -> c should happen on step i.
-    """
-    tree = [[0, root_node.idx]]
-    X_word, X_index = [root_node.word], [root_node.index]
-    internal_tree, internal_word, internal_index  = _get_tree_path(root_node)
-    tree.extend(internal_tree)
-    X_word.extend(internal_word)
-    X_index.extend(internal_index)
-    X_word.append(ini_word)
-    """
-    tree: list of eid list in tree order
-    X_word: list of word frequent list in tree order
-    X_index: list of word index list in tree order
-    """
-    return (np.array(X_word, dtype='float32'),
-            np.array(X_index, dtype='int32'),
-            np.array(tree, dtype='int32'))
-
-def _get_tree_path(root_node):
-    """Get computation order of leaves -> root."""
-    if root_node.children is None:
-        return [], [], []
-    layers = []
-    layer = [root_node]
-    while layer:
-        layers.append(layer[:]) #[[root node], [nodes in 1st layer...], [nodes in 2nd layer...],...]
-        next_layer = []
-        [next_layer.extend([child for child in node.children if child])
-         for node in layer] #1st iter: [nodes in 1st layer], 2nd iter: [nodes in 2nd layer]
-        layer = next_layer #1st iter: [root], 2nd iter: [nodes in 1st layer], ...
-    tree = []
-    word = []
-    index = []
-    for layer in layers:
-        for node in layer:
-            if not node.children:
-               continue 
-            for child in node.children:
-                tree.append([node.idx, child.idx]) # [[1st child eid, 1st child index in tree], [2nd child eid, 2nd child index in tree]...]
-                word.append(child.word if child.word is not None else -1) # [[wordFreq of 1st child], [wordFreq of 2nd child], ...]
-                index.append(child.index if child.index is not None else -1)# [[wordIndex of 1st child], [wordIndex of 2nd child], ...]
-    return tree, word, index
 
 ################################ tree rnn class ######################################
 class RvNN(nn.Module):
@@ -81,7 +19,7 @@ class RvNN(nn.Module):
     state computed at the root.
 
     """
-    def __init__(self, word_dim, hidden_dim=5, Nclass=4):
+    def __init__(self, word_dim=5000, hidden_dim=100, Nclass=4):
         super(RvNN, self).__init__()
         assert word_dim > 1 and hidden_dim > 1
         self.hidden_dim = hidden_dim

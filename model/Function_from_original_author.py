@@ -1,26 +1,76 @@
-import model.TD_RvNN as TD_RvNN
 import torch
-import time
-import datetime
+import model.TD_RvNN as TD_RvNN
 import numpy as np
 import sys
-import torch.optim as optim
 
-obj = "Twitter16" # choose dataset, you can choose either "Twitter15" or "Twitter16"
+dataset = "Twitter16" # choose dataset, you can choose either "Twitter15" or "Twitter16"
 fold = "4" # fold index, choose from 0-4
-vocabulary_size = 5000
-hidden_dim = 100
-Nclass = 4 # number of class: 1:news, 2:false, 3:true, 4:unverified
-Nepoch = 600
-lr = 0.001 #learning rate
 
-#unit="TD_RvNN-"+obj+str(fold)+'-vol.'+str(vocabulary_size)+"_u2b"
-treePath = '../resource/data.TD_RvNN.vol_'+str(vocabulary_size)+'.txt'
-trainPath = "../nfold/RNNtrainSet_"+obj+str(fold)+"_tree.txt"
-testPath = "../nfold/RNNtestSet_"+obj+str(fold)+"_tree.txt"
-labelPath = "../resource/"+obj+"_label_All.txt"
+treePath = '../resource/data.TD_RvNN.vol_5000.txt'
+trainPath = "../nfold/RNNtrainSet_"+dataset+str(fold)+"_tree.txt"
+testPath = "../nfold/RNNtestSet_"+dataset+str(fold)+"_tree.txt"
+labelPath = "../resource/"+dataset+"_label_All.txt"
 
 ################################### tools #####################################
+class Node_tweet(object):
+    def __init__(self, idx=None):
+        self.children = [] #children of current node
+        self.idx = idx #eid
+        self.word = [] #wordFrequent
+        self.index = [] #wordIndex
+        self.parent = None #parent of current node
+        
+# generate tree structure
+def gen_nn_inputs(root_node, ini_word):
+    """Given a root node, returns the appropriate inputs to NN.
+    The NN takes in
+        x: the values at the leaves (e.g. word indices)
+        tree: a (n x degree) matrix that provides the computation order.
+            Namely, a row tree[i] = [a, b, c] in tree signifies that a
+            and b are children of c, and that the computation
+            f(a, b) -> c should happen on step i.
+    """
+    tree = [[0, root_node.idx]]
+    X_word, X_index = [root_node.word], [root_node.index]
+    internal_tree, internal_word, internal_index  = _get_tree_path(root_node)
+    tree.extend(internal_tree)
+    X_word.extend(internal_word)
+    X_index.extend(internal_index)
+    X_word.append(ini_word)
+    """
+    tree: list of eid list in tree order
+    X_word: list of word frequent list in tree order
+    X_index: list of word index list in tree order
+    """
+    return (np.array(X_word, dtype='float32'),
+            np.array(X_index, dtype='int32'),
+            np.array(tree, dtype='int32'))
+
+def _get_tree_path(root_node):
+    """Get computation order of leaves -> root."""
+    if root_node.children is None:
+        return [], [], []
+    layers = []
+    layer = [root_node]
+    while layer:
+        layers.append(layer[:]) #[[root node], [nodes in 1st layer...], [nodes in 2nd layer...],...]
+        next_layer = []
+        [next_layer.extend([child for child in node.children if child])
+         for node in layer] #1st iter: [nodes in 1st layer], 2nd iter: [nodes in 2nd layer]
+        layer = next_layer #1st iter: [root], 2nd iter: [nodes in 1st layer], ...
+    tree = []
+    word = []
+    index = []
+    for layer in layers:
+        for node in layer:
+            if not node.children:
+               continue 
+            for child in node.children:
+                tree.append([node.idx, child.idx]) # [[1st child eid, 1st child index in tree], [2nd child eid, 2nd child index in tree]...]
+                word.append(child.word if child.word is not None else -1) # [[wordFreq of 1st child], [wordFreq of 2nd child], ...]
+                index.append(child.index if child.index is not None else -1)# [[wordIndex of 1st child], [wordIndex of 2nd child], ...]
+    return tree, word, index
+
 def str2matrix(Str, MaxL): # str is wordIndex : wordfreq
     wordFreq, wordIndex = [], []
     l = 0
@@ -54,7 +104,7 @@ def constructTree(tree):
     ## 1. ini tree node: create a node with each eid in the tree dictionary
     index2node = {}
     for i in tree:
-        node = TD_RvNN.Node_tweet(idx=i)
+        node = Node_tweet(idx=i)
         index2node[i] = node
     ## 2. construct tree: fill each node of tree with information from tree dictionary
     for j in tree:
@@ -222,48 +272,5 @@ def evaluation_4class(prediction, y): # 4 dim
             'C3:',Acc3, Prec3, Recll3, F3,
             'C4:',Acc4, Prec4, Recll4, F4]
 
-##################################### MAIN ####################################        
 
-if __name__ == "__main__":
-    ## 1. load tree & word & index & label
-    tree_train, word_train, index_train, parent_num_train, y_train, tree_test, word_test, index_test, parent_num_test, y_test = loadData()
-    ## 2. ini RNN model
-    t0 = time.time()
-    model = TD_RvNN.RvNN(vocabulary_size, hidden_dim, Nclass)
-    t1 = time.time()
-    print('Recursive model established,', (t1-t0)/60)
-    ## 3. looping SGD
-    losses_5, losses = [], []
-    num_examples_seen = 0
-    for epoch in range(Nepoch):
-        #optimizer = optim.Adam(model.params, lr)
-        optimizer = optim.SGD(model.params, lr, momentum=0.9)
-        for i in range(len(y_train)):
-            model.zeroGrad()
-            pred_y = model.compute_tree(word_train[i], index_train[i], parent_num_train[i], tree_train[i])
-            loss = torch.sum((torch.sub(torch.FloatTensor(y_train[i]),pred_y))**2)
-            loss.backward()
-            optimizer.step()
-            losses.append(np.round(loss.detach(),2))
-            num_examples_seen += 1
-        print("epoch=%d: loss=%f" % ( epoch, np.mean(losses) ))
-        sys.stdout.flush()
-        ## cal loss & evaluate
-        if epoch % 5 == 0:
-           losses_5.append((num_examples_seen, np.mean(losses)))
-           time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-           print("%s: Loss after num_examples_seen=%d epoch=%d: %f" % (time, num_examples_seen, epoch, np.mean(losses)))
-           sys.stdout.flush()
-           prediction = []
-           for j in range(len(y_test)):
-               pred_y = model.compute_tree(word_test[j], index_test[j], parent_num_test[j], tree_test[j])
-               prediction.append(pred_y)
-           res = evaluation_4class(prediction, y_test)
-           print('results:', res)
-           sys.stdout.flush()
-           ## Adjust the learning rate if loss increases
-           if len(losses_5) > 1 and losses_5[-1][1] > losses_5[-2][1]:
-              lr = lr * 0.5
-              print("Setting learning rate to %f" % lr)
-              sys.stdout.flush()
 
