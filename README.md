@@ -5,7 +5,7 @@ Please install the following python libraries:
 
 numpy version 1.16.4<br/>
 pytorch version 1.0.1<br/>
-matplotlib 3.1.0<br/>
+matplotlib version 3.1.0<br/>
 
 ## Usage
 Run "model/Main.py" to reproduce the experiments<br/>
