@@ -125,7 +125,7 @@ def constructTree(tree):
     ## 3. convert tree to DNN input    
     parent_num = tree[j]['parent_num']
     iniVec, _ = str2matrix( "0:0", tree[j]['maxL'] )
-    x_word, x_index, tree = TD_RvNN.gen_nn_inputs(root, iniVec)
+    x_word, x_index, tree = gen_nn_inputs(root, iniVec)
     """
     tree: list of eid list in tree order
     X_word: list of word frequent list in tree order

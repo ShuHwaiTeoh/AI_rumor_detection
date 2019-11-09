@@ -6,19 +6,8 @@ import torch.autograd
 import torch.nn.functional as F
 from torch.nn.utils import clip_grad_norm
 
-################################ tree rnn class ######################################
+######################################################################
 class RvNN(nn.Module):
-    """Data is represented in a tree structure.
-
-    Every leaf and internal node has a data (provided by the input)
-    and a memory or hidden state.  The hidden state is computed based
-    on its own data and the hidden states of its parents.  The
-    hidden state of leaves is given by a custom init function.
-
-    The entire tree's embedding is represented by the final
-    state computed at the root.
-
-    """
     def __init__(self, word_dim=5000, hidden_dim=100, Nclass=4):
         super(RvNN, self).__init__()
         assert word_dim > 1 and hidden_dim > 1
@@ -35,7 +24,7 @@ class RvNN(nn.Module):
         self.W_r = self.init_matrix([hidden_dim, hidden_dim])
         self.U_r = self.init_matrix([hidden_dim, hidden_dim])
         self.b_r = torch.FloatTensor(self.init_vector([self.hidden_dim]))
-        # weight and bias of FRU output
+        # weight and bias of GRU output
         self.W_h = self.init_matrix([hidden_dim, hidden_dim])
         self.U_h = self.init_matrix([hidden_dim, hidden_dim])
         self.b_h = torch.FloatTensor(self.init_vector([self.hidden_dim]))
