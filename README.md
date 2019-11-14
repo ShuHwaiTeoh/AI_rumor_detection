@@ -10,10 +10,10 @@ matplotlib version 3.1.0<br/>
 ## Usage
 Run "model/Main.py" to reproduce the experiments<br/>
 Run "model/compare.py" to polt the results in the result folder<br/>
-Use variable "dataset" in "model/Function_from_original_author.py" to specified which dataset is used.
-Uncomment line 22 "optimizer = ..." and comment out line 21 "optimizer = ..." to switch optimizer from ADAM to SGD.
-Use function "plot3" in "model/compare.py" to plot the results of TheanoSGD model, PyTorchSFD model, and PyTorchADAM model.
-Use function "plot2" in "model/compare.py" to plot the results of PyTorchADAM model tested with Twitter15 amd Twitter16 datasets.
+Use variable "dataset" in "model/Function_from_original_author.py" to specified which dataset is used.<br/>
+Uncomment line 22 "optimizer = ..." and comment out line 21 "optimizer = ..." to switch optimizer from ADAM to SGD.<br/>
+Use function "plot3" in "model/compare.py" to plot the results of TheanoSGD model, PyTorchSFD model, and PyTorchADAM model.<br/>
+Use function "plot2" in "model/compare.py" to plot the results of PyTorchADAM model tested with Twitter15 amd Twitter16 datasets.<br/>
 
 ## Files written by me
 
